@@ -3,6 +3,8 @@ import './AddTask.css';
 
 export default function AddTask({ onCreate }) {
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -12,26 +14,7 @@ export default function AddTask({ onCreate }) {
     dueTime: ''
   });
 
-  const change = (e) => {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
-  };
-
-  const submit = (e) => {
-    e.preventDefault();
-    if (!form.title.trim()) return alert('Title zorunlu.');
-    if (!form.dueDate) return alert('Due date zorunlu.');
-
-    onCreate({
-      title: form.title.trim(),
-      description: form.description,
-      category: form.category,
-      status: form.status,
-      dueDate: form.dueDate,
-      dueTime: form.dueTime
-    });
-
-    setOpen(false);
+  const resetForm = () => {
     setForm({
       title: '',
       description: '',
@@ -42,17 +25,67 @@ export default function AddTask({ onCreate }) {
     });
   };
 
+  const change = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+  };
+
+  const closeModal = () => {
+    setOpen(false);
+    setError('');
+    setSaving(false);
+    resetForm();
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!form.title.trim()) {
+      setError('Title zorunlu.');
+      return;
+    }
+
+    if (!form.dueDate) {
+      setError('Due date zorunlu.');
+      return;
+    }
+
+    setSaving(true);
+    const result = await onCreate({
+      title: form.title.trim(),
+      description: form.description,
+      category: form.category,
+      status: form.status,
+      dueDate: form.dueDate,
+      dueTime: form.dueTime
+    });
+    setSaving(false);
+
+    if (!result?.success) {
+      setError(result?.error || 'Task kaydedilemedi.');
+      return;
+    }
+
+    closeModal();
+  };
+
   return (
     <>
       {/* Dashboard.css'teki .btn-add stilini kullanıyoruz */}
-      <button className="btn-add" onClick={() => setOpen(true)}>+ Add Task</button>
+      <button className="btn-add" onClick={() => { setOpen(true); setError(''); resetForm(); }}>+ Add Task</button>
 
       {open && (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <div className="modal-backdrop" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Add Task</h3>
 
             <form onSubmit={submit} className="task-form">
+              {error && (
+                <div className="alert-error" role="alert">
+                  {error}
+                </div>
+              )}
               <div className="form-row">
                 <label>Title</label>
                 <input
@@ -116,11 +149,11 @@ export default function AddTask({ onCreate }) {
               </div>
 
               <div className="actions">
-                <button type="button" className="btn-secondary" onClick={() => setOpen(false)}>
+                <button type="button" className="btn-secondary" onClick={closeModal}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  Save
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </form>
