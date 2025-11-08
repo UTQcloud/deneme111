@@ -1,16 +1,46 @@
 import { useState, useEffect } from 'react';
 import './Dashboard.css';
 import AddTask from '../components/AddTask'; // <- yolunu projenin yapısına göre ayarla
+import { taskService } from '../services/api';
 
 function Dashboard({ user, onLogout }) {
   const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const normalizeTimeValue = (time) => {
+    if (time === null || time === undefined || time === '') {
+      return null;
+    }
+
+    if (typeof time === 'string') {
+      return time.length > 5 ? time.slice(0, 5) : time;
+    }
+
+    if (Array.isArray(time) && time.length >= 2) {
+      const [hour, minute] = time;
+      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    }
+
+    return `${time}`;
+  };
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    const result = await taskService.getAllTasks();
+
+    if (result.success) {
+      setTasks(result.data || []);
+      setError('');
+    } else {
+      setError(result.error);
+      setTasks([]);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    setTasks([
-      { id: 1, title: 'Complete project documentation', description: 'Write comprehensive documentation for the task management system', category: 'Work', status: 'In Progress', dueDate: '2025-11-15', dueTime: '17:00' },
-      { id: 2, title: 'Schedule team meeting', description: 'Organize weekly team sync meeting', category: 'Work', status: 'Pending', dueDate: '2025-11-12', dueTime: '10:00' },
-      { id: 3, title: 'Buy groceries', description: 'Weekly grocery shopping', category: 'Personal', status: 'Completed', dueDate: '2025-11-07', dueTime: '18:00' }
-    ]);
+    fetchTasks();
   }, []);
 
   const getStatusColor = (status) => {
@@ -25,18 +55,30 @@ function Dashboard({ user, onLogout }) {
   // dueTime'ı da dikkate al
   const isDueSoon = (dueDate, dueTime) => {
     if (!dueDate) return false;
-    const due = new Date(`${dueDate}T${dueTime ? dueTime : '23:59'}`);
+    const normalizedTime = normalizeTimeValue(dueTime) || '23:59';
+    const due = new Date(`${dueDate}T${normalizedTime}`);
     const now = new Date();
     const diffDays = (due - now) / (1000 * 60 * 60 * 24);
     return diffDays <= 2 && diffDays >= 0;
   };
 
   // AddTask bileşeninden gelen veriyi state'e ekle
-  const handleCreateTask = (data) => {
-    setTasks((prev) => {
-      const maxId = prev.length ? Math.max(...prev.map((t) => t.id)) : 0;
-      return [...prev, { id: maxId + 1, ...data }];
-    });
+  const handleCreateTask = async (data) => {
+    const result = await taskService.createTask(data);
+
+    if (result.success) {
+      setTasks((prev) => [...prev, result.data]);
+      setError('');
+      return { success: true };
+    }
+
+    setError(result.error);
+    return { success: false, error: result.error };
+  };
+
+  const formatTime = (time) => {
+    const normalized = normalizeTimeValue(time);
+    return normalized || '—';
   };
 
   return (
@@ -75,27 +117,41 @@ function Dashboard({ user, onLogout }) {
           <AddTask onCreate={handleCreateTask} />
         </div>
 
-        <div className="tasks-grid">
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              className={`task-card ${isDueSoon(task.dueDate, task.dueTime) ? 'due-soon' : ''}`}
-            >
-              <div className="task-header">
-                <h3>{task.title}</h3>
-                <span className={`status-badge ${getStatusColor(task.status)}`}>{task.status}</span>
-              </div>
-              <p className="task-description">{task.description}</p>
-              <div className="task-meta">
-                <span className="category-badge">{task.category}</span>
-                <span className="due-date">📅 {task.dueDate} at {task.dueTime || '—'}</span>
-              </div>
-              {isDueSoon(task.dueDate, task.dueTime) && (
-                <div className="alert-due">⚠️ Due soon!</div>
-              )}
+        {error && (
+          <div className="alert-due" role="alert">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="tasks-grid">
+            <div className="task-card">
+              <p>Loading tasks...</p>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="tasks-grid">
+            {tasks.map((task) => (
+              <div
+                key={task.id}
+                className={`task-card ${isDueSoon(task.dueDate, task.dueTime) ? 'due-soon' : ''}`}
+              >
+                <div className="task-header">
+                  <h3>{task.title}</h3>
+                  <span className={`status-badge ${getStatusColor(task.status)}`}>{task.status}</span>
+                </div>
+                <p className="task-description">{task.description}</p>
+                <div className="task-meta">
+                  <span className="category-badge">{task.category}</span>
+                  <span className="due-date">📅 {task.dueDate} at {formatTime(task.dueTime)}</span>
+                </div>
+                {isDueSoon(task.dueDate, task.dueTime) && (
+                  <div className="alert-due">⚠️ Due soon!</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

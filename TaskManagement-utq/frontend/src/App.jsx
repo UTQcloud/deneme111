@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
+import { clearAuthToken } from './services/api';
 import './App.css';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    clearAuthToken();
     setUser(null);
   };
 

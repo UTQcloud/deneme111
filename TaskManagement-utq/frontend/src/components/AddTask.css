@@ -22,6 +22,16 @@
   font-size: 20px;
 }
 
+.alert-error {
+  background-color: #fdecea;
+  color: #c0392b;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
 .task-form .form-row { margin-bottom: 12px; }
 .task-form .form-row.two-col {
   display: grid;
